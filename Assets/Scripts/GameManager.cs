@@ -1,14 +1,8 @@
 using System.Collections;
 using System.Collections.Generic;
-using System.Runtime.InteropServices.WindowsRuntime;
 using UnityEngine;
-
-// [System.Serializable]
-// public class LinksToButtonsForDifference
-// {
-//     public int id;
-//     public List<ButtonForDifference> buttons = new List<ButtonForDifference>();
-// }
+using UnityEngine.AddressableAssets;
+using UnityEngine.ResourceManagement.AsyncOperations;
 
 public enum DifferenceState
 {
@@ -18,14 +12,17 @@ public enum DifferenceState
 
 public class GameManager : MonoBehaviour
 {
+    public static GameManager instance { get; private set; }
+
     [Header("Changable params")]
     [SerializeField] private float _secondsForLose = 120f;
     [SerializeField] private float _tickForTimer = 1f; //in seconds
-
+    [SerializeField] private string _levelPrefabAddress;
 
     [Header("Links to objects")]
     [SerializeField] private GameplayUi _gameplayUi;
     [SerializeField] private PanelFinish _panelFinish;
+    [SerializeField] private GameObject _placeForLevel;
 
     // Fields for differences (on images)
     private Dictionary<int, List<ButtonForDifference>> _buttonsForDifference = new Dictionary<int, List<ButtonForDifference>>();
@@ -36,40 +33,93 @@ public class GameManager : MonoBehaviour
     // Fields for timer
     private float _timerBeforeLose; //in seconds
     private WaitForSeconds _delayForTimer;
+    private Coroutine _сoroutineTimer;
+
+    // Fields for level
+    private int _levelNumber = 0;
+    private GameObject _prefabLevel;
+    private GameObject _instantiatedLevel;
+
+    private void Awake()
+    {
+        if (instance == null)
+        {
+            instance = this;
+        }
+        else
+        {
+            Destroy(this);
+            return;
+        }
+
+        LoadLevel();
+        _delayForTimer = new WaitForSeconds(_tickForTimer);
+    }
 
     private void Start()
     {
+        LaunchTimer();
+    }
+
+    // Method for loading level prefab as an addressable, and instantiate
+    private async void LoadLevel()
+    {
+        // Load prefab of level by address
+        AsyncOperationHandle<GameObject> handle = Addressables.LoadAssetAsync<GameObject>(_levelPrefabAddress);
+        await handle.Task;
+
+        // Getting prefab
+        _prefabLevel = handle.Result;
+
+        InstantiateLevel();
+    }
+
+    private void InstantiateLevel()
+    {
+        _instantiatedLevel = Instantiate(_prefabLevel, _placeForLevel.transform);
+
+        _levelNumber++;
+        _gameplayUi.SetLevel(_levelNumber);
+    }
+
+    private void LaunchTimer()
+    {
         _timerBeforeLose = _secondsForLose;
-        _delayForTimer = new WaitForSeconds(_tickForTimer);
-        StartCoroutine(CoruitineForTimerLose());
+
+        if (_сoroutineTimer != null)
+        {
+            StopCoroutine(_сoroutineTimer);
+        }
+        _сoroutineTimer = StartCoroutine(CoruitineForTimerLose());
     }
 
     private IEnumerator CoruitineForTimerLose()
     {
+        _gameplayUi.SetTextOfTimer(_timerBeforeLose);
+
         while (_timerBeforeLose > 0f)
         {
-            _gameplayUi.SetTextOfTimer(_timerBeforeLose);
             yield return _delayForTimer;
             _timerBeforeLose -= _tickForTimer;
+            _gameplayUi.SetTextOfTimer(_timerBeforeLose);
         }
 
-        if (_timerBeforeLose <= 0f)
-        {
-            _panelFinish.ActivateWithLose();
-        }
+        CheckForLose();
     }
 
-    public void AddButtonForDifference(int buttonId, ButtonForDifference button)
+    // Method save info about ButtonForDifference
+    public void AddButtonForDifference(int differenceId, ButtonForDifference button)
     {
-        if (!_buttonsForDifference.ContainsKey(buttonId))
+        if (!_buttonsForDifference.ContainsKey(differenceId))
         {
-            _buttonsForDifference.Add(buttonId, new List<ButtonForDifference>());
+            _buttonsForDifference.Add(differenceId, new List<ButtonForDifference>());
         }
-        _buttonsForDifference[buttonId].Add(button);
+        _buttonsForDifference[differenceId].Add(button);
 
-        if (!_differencesState.ContainsKey(buttonId))
+        if (!_differencesState.ContainsKey(differenceId))
         {
-            _differencesState.Add(buttonId, DifferenceState.NotFound);
+            // Save info about this difference id
+            _differencesState.Add(differenceId, DifferenceState.NotFound);
             _totalCountOfDifferences++;
             _gameplayUi.SetTotalCountOfDifs(_totalCountOfDifferences);
         }
@@ -80,6 +130,11 @@ public class GameManager : MonoBehaviour
         if (!_differencesState.ContainsKey(id))
         {
             Debug.LogError($"ActivateButtonsForDifference: i have no entry for id={id}");
+            return;
+        }
+        if (!_buttonsForDifference.ContainsKey(id))
+        {
+            Debug.LogError($"ActivateButtonsForDifference: i have no buttons for id={id}");
             return;
         }
 
@@ -98,11 +153,34 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    private void CheckForLose()
+    {
+        if (_timerBeforeLose <= 0f)
+        {
+            _panelFinish.ActivateWithLose();
+            StopCoroutine(_сoroutineTimer);
+        }
+    }
+
     private void CheckForWin()
     {
         if (_foundCountOfDifferences == _totalCountOfDifferences)
         {
             _panelFinish.ActivateWithWin();
+            StopCoroutine(_сoroutineTimer);
         }
+    }
+
+    public void Restart()
+    {
+        _buttonsForDifference.Clear();
+        _differencesState.Clear();
+        _totalCountOfDifferences = _foundCountOfDifferences = 0;
+        _gameplayUi.SetFoundCountOfDifs(_foundCountOfDifferences);
+        _gameplayUi.SetTotalCountOfDifs(_totalCountOfDifferences);
+
+        Destroy(_instantiatedLevel);
+        InstantiateLevel();
+        LaunchTimer();
     }
 }

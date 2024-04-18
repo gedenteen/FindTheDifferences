@@ -6,9 +6,15 @@ using UnityEngine;
 
 public class GameplayUi : MonoBehaviour
 {
+    [SerializeField] private TextMeshProUGUI textLevel;
     [SerializeField] private TextMeshProUGUI textTotalCountOfDifs;
     [SerializeField] private TextMeshProUGUI textFoundCountOfDifs;
     [SerializeField] private TextMeshProUGUI textTimer;
+
+    public void SetLevel(int level)
+    {
+        textLevel.text = level.ToString();
+    }
 
     public void SetTextOfTimer(float seconds)
     {

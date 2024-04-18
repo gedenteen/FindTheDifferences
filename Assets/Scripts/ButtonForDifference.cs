@@ -15,16 +15,13 @@ public class ButtonForDifference : MonoBehaviour
 
     private void Awake()
     {
-        GameManager gameManager = FindObjectOfType<GameManager>();
-        gameManager.AddButtonForDifference(myId, this);
-
+        GameManager.instance.AddButtonForDifference(myId, this);
         button.onClick.AddListener(ActionForClick);
     }
 
     private void ActionForClick()
     {
-        GameManager gameManager = FindObjectOfType<GameManager>();
-        gameManager.ActivateButtonsForDifference(myId);
+        GameManager.instance.ActivateButtonsForDifference(myId);
     }
 
     public void DoAnimation()

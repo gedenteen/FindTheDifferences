@@ -20,4 +20,10 @@ public class PanelFinish : MonoBehaviour
         _canvasGroup.gameObject.SetActive(true);
         _textMain.text = "You lose";
     }
+
+    public void Restart()
+    {
+        GameManager.instance.Restart();
+        _canvasGroup.gameObject.SetActive(false);
+    }
 }
