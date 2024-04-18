@@ -40,6 +40,18 @@ public class GameManager : MonoBehaviour
     private GameObject _prefabLevel;
     private GameObject _instantiatedLevel;
 
+    private SaveManager _saveManager;
+
+    [Zenject.Inject]
+    private void Construct(SaveManager saveManager)
+    {
+        _saveManager = saveManager;
+        Debug.Log($"GameManager: Construct: _saveManager={_saveManager}");
+
+        _levelNumber = _saveManager.GetLevel();
+        Debug.Log($"GameManager: Construct: _levelNumber={_levelNumber}");
+    }
+
     private void Awake()
     {
         if (instance == null)
@@ -77,8 +89,6 @@ public class GameManager : MonoBehaviour
     private void InstantiateLevel()
     {
         _instantiatedLevel = Instantiate(_prefabLevel, _placeForLevel.transform);
-
-        _levelNumber++;
         _gameplayUi.SetLevel(_levelNumber);
     }
 
@@ -180,7 +190,10 @@ public class GameManager : MonoBehaviour
         _gameplayUi.SetTotalCountOfDifs(_totalCountOfDifferences);
 
         Destroy(_instantiatedLevel);
+        _levelNumber++;
+        _saveManager.SaveLevel(_levelNumber);
         InstantiateLevel();
+
         LaunchTimer();
     }
 }
